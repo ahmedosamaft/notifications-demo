@@ -26,4 +26,9 @@ public class NotificationController {
         messagingTemplate.convertAndSend("/topic/notification.%s".formatted(userId), msg);
         return msg;
     }
+
+    @GetMapping("read/{notificationId}")
+    public HttpStatusCode read(@PathVariable String notificationId) {
+        return HttpStatus.OK;
+    }
 }

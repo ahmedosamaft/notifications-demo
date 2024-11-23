@@ -1,83 +1,83 @@
-var stompClient = new StompJs.Client({
-    brokerURL: 'ws://localhost:8080/ws'
-});
+const socketFactory = () => new SockJS('http://localhost:8080/ws');
 
-stompClient.onConnect = function (frame) {
+const onConnect = (frame) => {
     setConnected(true);
     console.log('Connected: ' + frame);
+
+    // Subscribe to the public broadcast topic
     stompClient.subscribe('/topic/notification.all', function (msg) {
+        console.log(msg)
         addMessage(JSON.parse(msg.body));
     });
-    let user_id = document.getElementById("user_id").value;
-    stompClient.subscribe(`/topic/notification.${user_id}`, function (msg) {
-        addMessage(JSON.parse(msg.body));
-    });
+
+    // Subscribe to the user's private topic
+    const userId = document.getElementById("user_id").value.trim();
+    if (userId) {
+        stompClient.subscribe(`/topic/notification.${userId}`, function (msg) {
+            addMessage(JSON.parse(msg.body));
+        });
+    } else {
+        console.warn("User ID is empty. Private notifications won't be received.");
+    }
 };
 
-stompClient.onWebSocketError = function (error) {
-    console.error('Error with websocket', error);
+const onStompError = (frame) => {
+    console.error('STOMP error: ' + frame.headers['message']);
+    console.error('Details: ' + frame.body);
 };
 
-stompClient.onStompError = function (frame) {
-    console.error('Broker reported error: ' + frame.headers['message']);
-    console.error('Additional details: ' + frame.body);
-};
+const onWebSocketError = (error) => console.error('WebSocket error:', error);
 
-function setConnected(connected) {
+const stompClient = new StompJs.Client({
+    webSocketFactory: socketFactory,
+    debug: () => {},
+    onConnect: onConnect,
+    onStompError: onStompError,
+    onWebSocketError: onWebSocketError
+});
+
+const setConnected = (connected) => {
     document.getElementById("connect").disabled = connected;
     document.getElementById("disconnect").disabled = !connected;
-    if (connected) {
-        document.getElementById("conversation").style.display = "block";
-    } else {
-        document.getElementById("conversation").style.display = "none";
+    document.getElementById("conversation").style.visibility = connected ? "visible" : "hidden";
+
+    if (!connected) {
+        document.getElementById("notifications").innerHTML = "";
     }
-    document.getElementById("notifications").innerHTML = "";
 }
 
-function connect() {
-    stompClient.activate();
-}
+const connect = () => stompClient.activate();
 
-function disconnect() {
+const disconnect = () => {
     stompClient.deactivate();
     setConnected(false);
-    console.log("Disconnected");
 }
 
-function sendNotification() {
-    message_body = document.getElementById('notification').value
-    message_title = document.getElementById('notification_title').value
-    stompClient.publish({
-        destination: "/notifications/send",
-        body: JSON.stringify({'title': message_title, 'body': message_body})
-    });
-}
-
-function addMessage(message) {
+const addMessage = (message) => {
     const notifications = document.getElementById("notifications");
     const newRow = document.createElement("tr");
+
+    // Create cells for title and body
     const titleCell = document.createElement("td");
     const bodyCell = document.createElement("td");
-    titleCell.textContent = message.title;
-    bodyCell.textContent = message.body;
-    console.log(message)
+
+    // Populate cells
+    titleCell.textContent = message.title || "No Title";
+    bodyCell.textContent = message.body || "No Content";
+
+    // Append cells to the row
     newRow.appendChild(titleCell);
     newRow.appendChild(bodyCell);
+
+    // Append the row to the notifications table
     notifications.appendChild(newRow);
+
+    console.log("Notification received:", message);
 }
 
-const formElements = document.querySelectorAll("form");
-for (let i = 0; i < formElements.length; i++) {
-    formElements[i].addEventListener('submit', function (e) {
-        e.preventDefault();
-    });
-}
+document.querySelectorAll("form").forEach((form) =>
+    form.addEventListener('submit', (e) => e.preventDefault())
+);
 
-document.getElementById("connect").addEventListener("click", function () {
-    connect();
-});
-
-document.getElementById("disconnect").addEventListener("click", function () {
-    disconnect();
-});
-
+document.getElementById("connect").addEventListener("click", connect);
+document.getElementById("disconnect").addEventListener("click", disconnect);

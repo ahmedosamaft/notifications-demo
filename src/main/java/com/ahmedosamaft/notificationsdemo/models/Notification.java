@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @Data
 @Builder
 public class Notification {
+    Integer id;
     String title;
     String body;
 }
